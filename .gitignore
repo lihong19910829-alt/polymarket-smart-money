@@ -1,0 +1,16 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.uv-cache/
+.venv/
+*.log
+*.pid
+*.pyc
+.env
+dashboard-preview.html
+live-dashboard-snapshot.html
+dist/
+build/
+*.egg-info/
+.vercel/

@@ -1,0 +1,940 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Polymarket Live Smart Money</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #667985;
+      --line: #dce4ea;
+      --soft: #f4f7f9;
+      --panel: #ffffff;
+      --brand: #12343b;
+      --accent: #0f6b8a;
+      --good-bg: #e7f3ee;
+      --good: #12683f;
+      --warn-bg: #fff4df;
+      --warn: #8a5a00;
+      --danger-bg: #fdecec;
+      --danger: #9b1c1c;
+      --critical-bg: #f8d7da;
+      --critical: #6f1111;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; color: var(--ink); background: var(--soft); }
+    header { padding: 22px 28px; background: var(--brand); color: white; }
+    h1 { margin: 0 0 6px; font-size: 24px; }
+    header p { margin: 0; color: #cfe2e6; }
+    main { padding: 24px; display: grid; gap: 18px; }
+    .metrics { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .metric, section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+    .metric span { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; }
+    .metric strong { display: block; margin-top: 8px; font-size: 22px; overflow-wrap: anywhere; }
+    .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+    h2 { margin: 0 0 12px; font-size: 17px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border-bottom: 1px solid #edf1f4; padding: 10px 8px; text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; text-transform: uppercase; }
+    code { background: #eef3f5; border-radius: 4px; padding: 2px 5px; overflow-wrap: anywhere; }
+    a { color: var(--accent); }
+    input { width: 100%; border: 1px solid #b7c7d0; border-radius: 6px; padding: 10px 11px; font: inherit; }
+    button { border: 0; border-radius: 6px; background: var(--brand); color: white; padding: 10px 13px; font: inherit; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    .copy-address { background: #e8f0f3; color: var(--brand); padding: 5px 7px; font-size: 12px; }
+    .wallet-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .wallet-link { font-family: Consolas, monospace; background: #eef3f5; border-radius: 4px; padding: 2px 5px; text-decoration: none; overflow-wrap: anywhere; }
+    .pill { display: inline-block; border-radius: 999px; padding: 3px 8px; background: var(--good-bg); color: var(--good); font-size: 12px; white-space: nowrap; }
+    .warn { background: var(--warn-bg); color: var(--warn); }
+    .danger { background: var(--danger-bg); color: var(--danger); }
+    .critical { background: var(--critical-bg); color: var(--critical); font-weight: 700; }
+    .muted { color: var(--muted); }
+    .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+    .refreshbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .ghost-button { background: #e8f0f3; color: var(--brand); }
+    .toggle { display: inline-flex; gap: 7px; align-items: center; color: var(--muted); font-size: 13px; }
+    .toggle input { width: auto; }
+    .stack { display: grid; gap: 6px; }
+    .tiny { font-size: 12px; }
+    @media (max-width: 720px) {
+      main { padding: 14px; }
+      header { padding: 18px 16px; }
+      .grid { grid-template-columns: 1fr; }
+      .toolbar { grid-template-columns: 1fr; }
+      table { font-size: 13px; }
+      th, td { padding: 9px 6px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Polymarket Live Smart Money</h1>
+    <p>Live public API data with wallet classification, rating, and project participation scan.</p>
+  </header>
+  <main>
+    <div class="metrics">
+      <div class="metric"><span>Realtime</span><strong id="realtime-status">checking</strong></div>
+      <div class="metric"><span>Markets</span><strong id="market-count">...</strong></div>
+      <div class="metric"><span>Rated Wallets</span><strong id="wallet-count">...</strong></div>
+      <div class="metric"><span>Advanced Alerts</span><strong id="advanced-alert-count">...</strong></div>
+      <div class="metric"><span>Alerts</span><strong id="alert-count">...</strong></div>
+      <div class="metric"><span>Updated</span><strong id="updated-at">...</strong></div>
+      <div class="metric"><span>Next Refresh</span><strong id="next-refresh">60s</strong></div>
+    </div>
+
+    <section>
+      <div class="refreshbar">
+        <button id="refresh-now" type="button">Refresh Now</button>
+        <label class="toggle"><input id="auto-refresh" type="checkbox" checked /> Auto refresh every 60s</label>
+        <span id="refresh-note" class="muted">Scanning 50 live leaderboard addresses.</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Advanced Alerts</h2>
+      <table>
+        <thead><tr><th>Level</th><th>Rule</th><th>Wallets</th><th>Project / Direction</th><th>Extra Signal</th></tr></thead>
+        <tbody id="advanced-alerts-body"><tr><td colspan="5" class="muted">Scanning advanced alerts...</td></tr></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Smart-Money Alerts</h2>
+      <table>
+        <thead><tr><th>Type</th><th>Signal</th><th>Wallets</th><th>Project / Direction</th><th>Reason</th></tr></thead>
+        <tbody id="alerts-body"><tr><td colspan="5" class="muted">Scanning alerts...</td></tr></tbody>
+      </table>
+    </section>
+
+    <div class="grid">
+      <section>
+        <h2>Address Classification And Rating</h2>
+        <table>
+          <thead><tr><th>Rank</th><th>Wallet</th><th>Rating</th><th>Class</th><th>Expertise</th><th>PnL / Volume</th></tr></thead>
+          <tbody id="wallets-body"><tr><td colspan="6" class="muted">Loading live wallets...</td></tr></tbody>
+        </table>
+      </section>
+      <section>
+        <h2>Projects These Addresses Join</h2>
+        <table>
+          <thead><tr><th>Wallet</th><th>Open Projects</th></tr></thead>
+          <tbody id="participation-body"><tr><td colspan="2" class="muted">Loading current positions...</td></tr></tbody>
+        </table>
+      </section>
+    </div>
+
+    <section>
+      <h2>Find Addresses In A Project</h2>
+      <div class="toolbar">
+        <input id="project-key" placeholder="Type a market id, slug, category, or part of a question" />
+        <button id="project-search">Scan</button>
+      </div>
+      <table>
+        <thead><tr><th>Wallet</th><th>Rating</th><th>Matched Position</th></tr></thead>
+        <tbody id="project-body"><tr><td colspan="3" class="muted">Enter a project keyword to scan top live leaderboard wallets.</td></tr></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Live Active Markets</h2>
+      <table>
+        <thead><tr><th>Market</th><th>Category</th><th>24h Volume</th><th>Liquidity</th></tr></thead>
+        <tbody id="markets-body"><tr><td colspan="4" class="muted">Loading Polymarket markets...</td></tr></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Status</h2>
+      <p id="status-text" class="muted">Connecting to live public APIs...</p>
+    </section>
+  </main>
+  <script>
+    const LOCAL_API = location.protocol === "file:" ? "http://127.0.0.1:8000" : "";
+    const GAMMA_API = "https://gamma-api.polymarket.com";
+    const DATA_API = "https://data-api.polymarket.com";
+    const WALLET_LIMIT = 50;
+    const MARKET_LIMIT = 20;
+    const POSITIONS_PER_WALLET = 8;
+    const ALERT_MIN_CURRENT_PRICE = 0.02;
+    const ALERT_MIN_OUTRIGHT_PRICE = 0.05;
+    const ACTIVE_REFRESH_SECONDS = 60;
+    const HIDDEN_REFRESH_SECONDS = 300;
+    let nextRefreshAt = Date.now() + ACTIVE_REFRESH_SECONDS * 1000;
+    let refreshTimer = null;
+    let countdownTimer = null;
+    let isRefreshing = false;
+    const money = value => value == null || value === "" ? "-" : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const text = value => value == null || value === "" ? "-" : String(value);
+    const html = value => text(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+    const pill = (value, warn=false) => `<span class="pill ${warn ? "warn" : ""}">${text(value)}</span>`;
+    const alertPill = value => `<span class="pill ${value === "CRITICAL" ? "critical" : value === "HIGH" ? "danger" : "warn"}">${text(value)}</span>`;
+    const shortAddress = value => {
+      const raw = text(value);
+      return raw.length > 10 ? `${raw.slice(0, 4)}...${raw.slice(-4)}` : raw;
+    };
+    const isAddressLikeName = (value, address) => {
+      if (value == null || value === "") return false;
+      const normalized = String(value).trim().toLowerCase();
+      const normalizedAddress = String(address || "").trim().toLowerCase();
+      const compact = normalized.replace(/\.\.\./g, "");
+      if (normalizedAddress && normalized === normalizedAddress) return true;
+      if (normalized.startsWith("0x") && normalized.length >= 10) return true;
+      return Boolean(normalizedAddress && compact && normalizedAddress.replace(/\.\.\./g, "").includes(compact));
+    };
+    const displayName = row => {
+      const address = row.address;
+      const candidate = [row.name, row.profileName, row.pseudonym, row.userName].find(value => value && !isAddressLikeName(value, address));
+      return candidate || shortAddress(address);
+    };
+    const walletUrl = address => address ? `https://polymarket.com/profile/${encodeURIComponent(address)}` : null;
+    const walletLink = row => {
+      const address = text(row.address);
+      const profileUrl = row.profile_url || walletUrl(row.address);
+      const nickname = displayName(row);
+      if (!row.address) return `<span class="muted">-</span>`;
+      return `<div class="wallet-actions"><a class="wallet-link" href="${profileUrl}" target="_blank" rel="noreferrer" title="${html(address)}">${html(nickname)}</a><button class="copy-address" type="button" data-address="${html(address)}">Copy</button></div>`;
+    };
+    const scoreSummary = row => {
+      const classification = row.classification || row;
+      const copy = classification.copyability_score;
+      const hold = classification.hold_quality_score;
+      const perf = classification.performance_score;
+      if (!copy && !hold && !perf) return "score -";
+      return `copy ${text(copy || "-")} / hold ${text(hold || "-")} / perf ${text(perf || "-")}`;
+    };
+    const profileScoreFields = profile => ({
+      quality_score: profile.quality_score,
+      performance_score: profile.performance_score,
+      hold_quality_score: profile.hold_quality_score,
+      copyability_score: profile.copyability_score,
+      copyability_label: profile.copyability_label,
+    });
+    const alertWalletSummary = (wallet, profile, primary, position = null) => ({
+      address: wallet.address,
+      profile_url: wallet.profile_url,
+      name: wallet.name,
+      rating: profile.rating || "WATCH",
+      ...profileScoreFields(profile),
+      expertise: primary,
+      rank: wallet.rank,
+      ...(position ? {
+        entry_time: position.entry_time,
+        size: position.size,
+        avg_price: position.avg_price,
+        current_price: position.current_price,
+      } : {}),
+    });
+
+    async function loadJson(path) {
+      const response = await fetch(`${LOCAL_API}${path}`);
+      if (!response.ok) throw new Error(`${path} ${response.status}`);
+      return response.json();
+    }
+
+    async function fetchPublicJson(url) {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`${url} ${response.status}`);
+      return response.json();
+    }
+
+    function asList(payload, ...keys) {
+      if (Array.isArray(payload)) return payload;
+      for (const key of keys) {
+        if (Array.isArray(payload?.[key])) return payload[key];
+      }
+      return [];
+    }
+
+    function parseArrayish(value) {
+      if (Array.isArray(value)) return value;
+      if (typeof value !== "string") return [];
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_error) {
+        return value.replace(/^\[/, "").replace(/\]$/, "").split(",").map(item => item.trim().replace(/^"|"$/g, "")).filter(Boolean);
+      }
+    }
+
+    function currentPriceFromRow(row, outcome) {
+      const direct = row.curPrice || row.currentPrice || row.price || row.markPrice || row.lastPrice || row.outcomePrice;
+      if (direct != null && direct !== "") return direct;
+      const currentValue = Number(row.currentValue || row.value);
+      const size = Number(row.size || row.amount || row.balance);
+      if (!Number.isNaN(currentValue) && !Number.isNaN(size) && size > 0) return currentValue / size;
+      const prices = parseArrayish(row.outcomePrices || row.prices);
+      const outcomes = parseArrayish(row.outcomes);
+      const outcomeIndex = row.outcomeIndex ?? row.outcome_index;
+      if (outcomeIndex != null && prices[Number(outcomeIndex)] != null) return prices[Number(outcomeIndex)];
+      if (outcome && outcomes.length === prices.length) {
+        const normalizedOutcome = String(outcome).trim().toLowerCase();
+        const index = outcomes.findIndex(item => String(item).trim().toLowerCase() === normalizedOutcome);
+        if (index >= 0) return prices[index];
+      }
+      return prices.length === 1 ? prices[0] : null;
+    }
+
+    function normalizePublicMarket(row) {
+      const slug = row.slug;
+      return {
+        market_id: String(row.id || row.marketId || row.conditionId || ""),
+        question: row.question || row.title || slug,
+        slug,
+        category: row.category || row.groupItemTitle,
+        volume_24h: row.volume24hr || row.volume24h,
+        volume_total: row.volume,
+        liquidity: row.liquidity,
+        outcomes: parseArrayish(row.outcomes),
+        outcome_prices: parseArrayish(row.outcomePrices),
+        url: slug ? `https://polymarket.com/event/${slug}` : null,
+      };
+    }
+
+    function normalizePublicWallet(row, index) {
+      const address = row.proxyWallet || row.wallet || row.address || row.user;
+      return {
+        rank: row.rank || index + 1,
+        address,
+        profile_url: walletUrl(address),
+        name: [row.name, row.profileName, row.pseudonym, row.userName].find(value => value && !isAddressLikeName(value, address)),
+        pnl: row.pnl || row.profit,
+        volume: row.volume || row.vol,
+      };
+    }
+
+    function normalizePublicPosition(row) {
+      const slug = row.slug || row.eventSlug || row.marketSlug;
+      const outcome = row.outcome || row.outcomeName;
+      return {
+        market_id: String(row.market || row.marketId || row.conditionId || row.condition_id || row.market_id || ""),
+        question: row.title || row.question || row.marketTitle || row.eventTitle,
+        slug,
+        category: row.category || row.eventCategory,
+        active: row.active,
+        closed: row.closed,
+        end_date: row.endDate || row.endDateIso || row.marketEndDate,
+        outcome,
+        size: row.size || row.amount || row.balance,
+        avg_price: row.avgPrice || row.averagePrice,
+        current_price: currentPriceFromRow(row, outcome),
+        entry_time: row.entryTime || row.createdAt || row.created_at || row.timestamp || row.lastTradeTime,
+        url: slug ? `https://polymarket.com/event/${slug}` : null,
+      };
+    }
+
+    function isFalse(value) {
+      return value === false || String(value).toLowerCase() === "false" || String(value) === "0";
+    }
+
+    function isTrue(value) {
+      return value === true || String(value).toLowerCase() === "true" || String(value) === "1";
+    }
+
+    function isLivePosition(position) {
+      if (isTrue(position.closed) || isFalse(position.active)) return false;
+      const size = Number(position.size);
+      if (!Number.isNaN(size) && size <= 0) return false;
+      const currentPrice = Number(position.current_price);
+      if (!Number.isNaN(currentPrice) && currentPrice <= ALERT_MIN_CURRENT_PRICE) return false;
+      const question = String(position.question || "").toLowerCase();
+      if (question.includes("world cup") && question.includes("win")) {
+        if (Number.isNaN(currentPrice) || currentPrice < ALERT_MIN_OUTRIGHT_PRICE) return false;
+      }
+      if (!position.end_date) return true;
+      const endAt = Date.parse(position.end_date);
+      return Number.isNaN(endAt) || endAt > Date.now();
+    }
+
+    function positionSummary(item) {
+      const entry = item.entry_time ? new Date(item.entry_time).toLocaleString() : "-";
+      return `time ${entry}; size ${text(item.size)}; avg ${text(item.avg_price)}; now ${text(item.current_price)}`;
+    }
+
+    function clamp(value, min = 0, max = 100) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function scoreLabel(score) {
+      if (score >= 80) return "strong";
+      if (score >= 60) return "good";
+      if (score >= 40) return "mixed";
+      return "weak";
+    }
+
+    function positionQuality(row, positions) {
+      const livePositions = (positions || []).filter(isLivePosition);
+      const pnl = Number(row.pnl || 0);
+      const volume = Number(row.volume || 0);
+      let performance = 35;
+      if (pnl > 0) performance += Math.min(pnl / 20000, 1) * 45;
+      else if (pnl < 0) performance -= Math.min(Math.abs(pnl) / 10000, 1) * 20;
+      if (volume > 0 && pnl > 0) performance += clamp((pnl / volume) * 250, 0, 20);
+      performance = clamp(performance);
+
+      const now = Date.now();
+      const holdingDays = [];
+      const convictionScores = [];
+      let profitablePositions = 0;
+      let pricedPositions = 0;
+      for (const position of livePositions) {
+        const entryAt = Date.parse(position.entry_time);
+        if (!Number.isNaN(entryAt)) holdingDays.push(Math.max(0, (now - entryAt) / 86400000));
+        const avgPrice = Number(position.avg_price);
+        const currentPrice = Number(position.current_price);
+        if (!Number.isNaN(avgPrice) && !Number.isNaN(currentPrice)) {
+          pricedPositions += 1;
+          if (currentPrice >= avgPrice) profitablePositions += 1;
+          convictionScores.push(clamp((currentPrice - avgPrice) * 100 + 50));
+        }
+      }
+
+      const avgHoldingDays = holdingDays.length ? holdingDays.reduce((sum, value) => sum + value, 0) / holdingDays.length : 0;
+      let hold = 45 + Math.min(avgHoldingDays / 14, 1) * 25;
+      if (convictionScores.length) {
+        hold += ((convictionScores.reduce((sum, value) => sum + value, 0) / convictionScores.length) - 50) * 0.3;
+      }
+      if (livePositions.length) hold += Math.min(livePositions.length / 8, 1) * 10;
+      hold = clamp(hold);
+
+      let churnPenalty = 0;
+      if (livePositions.length >= 8 && avgHoldingDays < 2) churnPenalty += 18;
+      else if (livePositions.length >= 5 && avgHoldingDays < 1) churnPenalty += 10;
+      if (volume > 0 && pnl <= 0) churnPenalty += 10;
+
+      const winRate = pricedPositions ? profitablePositions / pricedPositions : null;
+      let copyability = clamp(performance * 0.45 + hold * 0.45 - churnPenalty);
+      if (winRate != null) copyability = clamp(copyability + (winRate - 0.5) * 20);
+      return {
+        performance_score: performance.toFixed(2),
+        hold_quality_score: hold.toFixed(2),
+        copyability_score: copyability.toFixed(2),
+        avg_open_holding_days: avgHoldingDays.toFixed(2),
+        live_position_count: livePositions.length,
+        priced_position_count: pricedPositions,
+        open_position_win_rate: winRate == null ? null : winRate.toFixed(2),
+        churn_penalty: churnPenalty.toFixed(2),
+        copyability_label: scoreLabel(copyability),
+      };
+    }
+
+    function inferExpertise(position) {
+      const haystack = [position.category, position.question, position.slug, position.market_id].join(" ").toLowerCase();
+      const rules = [
+        ["Politics", ["election", "president", "senate", "congress", "democratic", "republican", "nomination", "minister"]],
+        ["Sports", ["fifa", "world cup", "nba", "nfl", "mlb", "nhl", "ufc", "champions league", "super bowl"]],
+        ["Crypto", ["bitcoin", "btc", "ethereum", "eth", "solana", "sol", "xrp", "crypto", "airdrop"]],
+        ["Macro", ["fed", "rate", "inflation", "cpi", "gdp", "recession", "tariff", "oil"]],
+        ["Culture", ["movie", "album", "grammy", "oscar", "box office", "celebrity", "streaming"]],
+        ["Tech", ["openai", "apple", "tesla", "nvidia", "google", "meta", "ai", "spacex"]],
+      ];
+      const match = rules.find(([_label, keywords]) => keywords.some(keyword => haystack.includes(keyword)));
+      return match ? match[0] : (position.category || "General");
+    }
+
+    function walletExpertise(positions) {
+      const distribution = {};
+      for (const position of positions || []) {
+        const label = inferExpertise(position);
+        distribution[label] = (distribution[label] || 0) + 1;
+      }
+      const ranked = Object.entries(distribution).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      return {
+        primary: ranked[0]?.[0] || "Unknown",
+        secondary: ranked.slice(1, 3).map(([label]) => label),
+        distribution: Object.fromEntries(ranked),
+      };
+    }
+
+    function distributionText(distribution) {
+      const entries = Object.entries(distribution || {});
+      return entries.length ? entries.map(([label, count]) => `${label}: ${count}`).join(", ") : "-";
+    }
+
+    function classifyWallet(row, positions) {
+      const pnl = Number(row.pnl || 0);
+      const volume = Number(row.volume || 0);
+      const rank = Number(row.rank || 999999);
+      const projectCount = new Set((positions || []).map(position => position.market_id).filter(Boolean)).size;
+      const qualityDetail = positionQuality(row, positions);
+      let quality = 35;
+      if (rank <= 10) quality += 25;
+      else if (rank <= 50) quality += 15;
+      if (pnl > 0) quality += Math.min(pnl / 10000, 1) * 20;
+      if (volume > 0) quality += Math.min(volume / 250000, 1) * 15;
+      quality += Math.min(projectCount / 10, 1) * 5;
+      quality += (Number(qualityDetail.copyability_score) - 50) * 0.2;
+      quality = Math.min(100, quality);
+      const rating = quality >= 85 ? "S" : quality >= 72 ? "A" : quality >= 58 ? "B" : quality >= 42 ? "C" : "WATCH";
+      const label = volume >= 1000000 && pnl > 0 ? "HIGH_VOLUME_WINNER" : rank <= 20 && pnl > 0 ? "TOP_PNL" : projectCount >= 5 ? "DIVERSIFIED_ACTIVE" : pnl < 0 && volume > 100000 ? "HIGH_VOLUME_LOSS" : "OBSERVATION";
+      return { label, rating, quality_score: quality.toFixed(2), ...qualityDetail, expertise: walletExpertise(positions) };
+    }
+
+    function buildLiveAlerts(wallets) {
+      const alerts = [];
+      const sameDirection = new Map();
+      for (const wallet of wallets || []) {
+        const profile = wallet.classification || {};
+        const expertise = profile.expertise || {};
+        const primary = expertise.primary;
+        const rating = profile.rating || "WATCH";
+        const positions = (wallet.positions || []).filter(isLivePosition);
+        if (primary && !["Unknown", "General"].includes(primary)) {
+          const matches = positions.filter(position => inferExpertise(position) === primary);
+          if (matches.length) {
+            const first = matches[0];
+            alerts.push({
+              alert_type: "EXPERTISE_OPEN_POSITION",
+              severity: ["S", "A"].includes(rating) ? "HIGH" : "WATCH",
+              title: `${primary} specialist opened/holds matching positions`,
+              wallet: wallet.address,
+              profile_url: wallet.profile_url,
+              name: wallet.name,
+              rating,
+              ...profileScoreFields(profile),
+              expertise: primary,
+              market_id: first.market_id,
+              question: first.question,
+              url: first.url,
+              direction: first.outcome,
+              entry_time: first.entry_time,
+              size: first.size,
+              avg_price: first.avg_price,
+              current_price: first.current_price,
+              end_date: first.end_date,
+              matched_positions: matches.length,
+              position_details: matches.slice(0, 5),
+              reason: "wallet current positions overlap its primary expertise",
+            });
+          }
+        }
+        for (const position of positions) {
+          const marketId = text(position.market_id);
+          const direction = text(position.outcome).trim();
+          if (!position.market_id || !position.outcome) continue;
+          const key = `${marketId}::${direction.toLowerCase()}`;
+          if (!sameDirection.has(key)) {
+            sameDirection.set(key, {
+              market_id: marketId,
+              question: position.question,
+              url: position.url,
+              direction,
+              wallets: [],
+            });
+          }
+          const group = sameDirection.get(key);
+          if (wallet.address && !group.wallets.some(item => item.address === wallet.address)) {
+            group.wallets.push(alertWalletSummary(wallet, profile, primary, position));
+          }
+        }
+      }
+      for (const group of sameDirection.values()) {
+        if (group.wallets.length < 2) continue;
+        const strongCount = group.wallets.filter(wallet => ["S", "A"].includes(wallet.rating)).length;
+        alerts.push({
+          alert_type: "SAME_DIRECTION_CLUSTER",
+          severity: strongCount >= 2 ? "HIGH" : "WATCH",
+          title: "Multiple tracked wallets share the same direction",
+          market_id: group.market_id,
+          question: group.question,
+          url: group.url,
+          direction: group.direction,
+          wallet_count: group.wallets.length,
+          strong_wallet_count: strongCount,
+          wallets: group.wallets,
+          reason: "same project and same outcome across multiple addresses",
+        });
+      }
+      const severityRank = { HIGH: 0, WATCH: 1 };
+      return alerts.sort((a, b) =>
+        (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9)
+        || text(a.alert_type).localeCompare(text(b.alert_type))
+        || text(a.question || a.wallet).localeCompare(text(b.question || b.wallet))
+      ).slice(0, 30);
+    }
+
+    function buildAdvancedAlerts(wallets) {
+      const alerts = [];
+      const sameDirection = new Map();
+      const sameExpertise = new Map();
+      for (const wallet of wallets || []) {
+        const profile = wallet.classification || {};
+        const expertise = profile.expertise || {};
+        const primary = expertise.primary;
+        const walletSummary = alertWalletSummary(wallet, profile, primary);
+        const positions = (wallet.positions || []).filter(isLivePosition);
+        for (const position of positions) {
+          const marketId = text(position.market_id);
+          const direction = text(position.outcome).trim();
+          if (!position.market_id || !position.outcome || !wallet.address) continue;
+          const directionKey = `${marketId}::${direction.toLowerCase()}`;
+          if (!sameDirection.has(directionKey)) {
+            sameDirection.set(directionKey, {
+              market_id: marketId,
+              question: position.question,
+              url: position.url,
+              direction,
+              wallets: [],
+            });
+          }
+          const directionGroup = sameDirection.get(directionKey);
+          if (!directionGroup.wallets.some(item => item.address === wallet.address)) {
+            directionGroup.wallets.push({
+              ...walletSummary,
+              entry_time: position.entry_time,
+              size: position.size,
+              avg_price: position.avg_price,
+              current_price: position.current_price,
+            });
+          }
+
+          if (primary && !["Unknown", "General"].includes(primary)) {
+            const expertiseKey = `${marketId}::${primary}`;
+            if (!sameExpertise.has(expertiseKey)) {
+              sameExpertise.set(expertiseKey, {
+                market_id: marketId,
+                question: position.question,
+                url: position.url,
+                expertise: primary,
+                wallets: [],
+                directions: [],
+              });
+            }
+            const expertiseGroup = sameExpertise.get(expertiseKey);
+            if (!expertiseGroup.wallets.some(item => item.address === wallet.address)) {
+              expertiseGroup.wallets.push({
+                ...walletSummary,
+                entry_time: position.entry_time,
+                size: position.size,
+                avg_price: position.avg_price,
+                current_price: position.current_price,
+              });
+              expertiseGroup.directions.push(direction);
+            }
+          }
+        }
+      }
+
+      for (const group of sameDirection.values()) {
+        if (group.wallets.length < 4) continue;
+        const strongCount = group.wallets.filter(wallet => ["S", "A"].includes(wallet.rating)).length;
+        const expertiseDistribution = {};
+        for (const wallet of group.wallets) {
+          if (!wallet.expertise) continue;
+          expertiseDistribution[wallet.expertise] = (expertiseDistribution[wallet.expertise] || 0) + 1;
+        }
+        alerts.push({
+          alert_type: "ADVANCED_SAME_DIRECTION_CONSENSUS",
+          severity: group.wallets.length >= 5 || strongCount >= 3 ? "CRITICAL" : "HIGH",
+          title: "4+ tracked wallets share the same market direction",
+          market_id: group.market_id,
+          question: group.question,
+          url: group.url,
+          direction: group.direction,
+          wallet_count: group.wallets.length,
+          strong_wallet_count: strongCount,
+          expertise_distribution: Object.fromEntries(Object.entries(expertiseDistribution).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))),
+          wallets: group.wallets,
+          reason: "four or more tracked wallets hold the same outcome on the same market",
+        });
+      }
+
+      for (const group of sameExpertise.values()) {
+        const directionDistribution = {};
+        for (const direction of group.directions) {
+          directionDistribution[direction] = (directionDistribution[direction] || 0) + 1;
+        }
+        const dominantDirectionCount = Math.max(0, ...Object.values(directionDistribution));
+        const strongCount = group.wallets.filter(wallet => ["S", "A"].includes(wallet.rating)).length;
+        if (group.wallets.length < 3 && !(group.wallets.length >= 2 && dominantDirectionCount >= 2 && strongCount >= 1)) continue;
+        alerts.push({
+          alert_type: "ADVANCED_SAME_EXPERTISE_CONSENSUS",
+          severity: dominantDirectionCount >= 3 || (dominantDirectionCount >= 2 && strongCount >= 2) ? "CRITICAL" : "HIGH",
+          title: "Same-expertise wallets converge in one market",
+          market_id: group.market_id,
+          question: group.question,
+          url: group.url,
+          expertise: group.expertise,
+          direction: Object.keys(directionDistribution)[0],
+          direction_distribution: Object.fromEntries(Object.entries(directionDistribution).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))),
+          wallet_count: group.wallets.length,
+          strong_wallet_count: strongCount,
+          wallets: group.wallets,
+          reason: "same-expertise wallets are clustered in this market; two-wallet cases require same direction and at least one strong wallet",
+        });
+      }
+
+      const severityRank = { CRITICAL: 0, HIGH: 1, WATCH: 2 };
+      return alerts.sort((a, b) =>
+        (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9)
+        || (b.wallet_count || 0) - (a.wallet_count || 0)
+        || text(a.alert_type).localeCompare(text(b.alert_type))
+        || text(a.question).localeCompare(text(b.question))
+      ).slice(0, 20);
+    }
+
+    async function loadPublicFallback() {
+      const [marketsPayload, leaderboardPayload] = await Promise.all([
+        fetchPublicJson(`${GAMMA_API}/markets?active=true&closed=false&limit=${MARKET_LIMIT}&offset=0`),
+        fetchPublicJson(`${DATA_API}/v1/leaderboard?category=OVERALL&timePeriod=MONTH&orderBy=PNL&limit=${WALLET_LIMIT}&offset=0`),
+      ]);
+      const markets = asList(marketsPayload, "markets", "data").map(normalizePublicMarket)
+        .sort((a, b) => Number(b.volume_24h || b.volume_total || 0) - Number(a.volume_24h || a.volume_total || 0))
+        .slice(0, MARKET_LIMIT);
+      const baseWallets = asList(leaderboardPayload, "leaderboard", "data", "users").slice(0, WALLET_LIMIT).map(normalizePublicWallet);
+      const wallets = [];
+      for (const wallet of baseWallets) {
+        let positions = [];
+        if (wallet.address) {
+          try {
+            const payload = await fetchPublicJson(`${DATA_API}/positions?user=${encodeURIComponent(wallet.address)}&limit=${POSITIONS_PER_WALLET}&offset=0`);
+            positions = asList(payload, "positions", "data").map(normalizePublicPosition);
+          } catch (_error) {
+            positions = [];
+          }
+        }
+        wallets.push({ ...wallet, positions, classification: classifyWallet(wallet, positions) });
+      }
+      return { markets, wallets, mode: "browser_public_api" };
+    }
+
+    function renderMarkets(markets) {
+      document.getElementById("markets-body").innerHTML = markets.map(row => `
+        <tr>
+          <td>${row.url ? `<a href="${row.url}" target="_blank" rel="noreferrer">${text(row.question || row.market_id)}</a>` : text(row.question || row.market_id)}</td>
+          <td>${text(row.category)}</td>
+          <td>${money(row.volume_24h || row.volume_total)}</td>
+          <td>${money(row.liquidity)}</td>
+        </tr>`).join("") || `<tr><td colspan="4" class="muted">No live markets returned.</td></tr>`;
+    }
+
+    function renderWallets(wallets) {
+      document.getElementById("wallets-body").innerHTML = wallets.map(row => {
+        const profile = row.classification || {};
+        const expertise = profile.expertise || {};
+        return `
+          <tr>
+            <td>${text(row.rank)}</td>
+            <td><div class="stack">${walletLink(row)}<span class="tiny muted">${shortAddress(row.address)}</span></div></td>
+            <td><div class="stack">${pill(profile.rating || "WATCH", profile.rating === "WATCH")}<span class="tiny muted">copy ${text(profile.copyability_score || "-")} ${text(profile.copyability_label || "")}</span></div></td>
+            <td><div class="stack"><span>${text(profile.label)}</span><span class="tiny muted">score ${text(profile.quality_score)}</span><span class="tiny muted">hold ${text(profile.hold_quality_score || "-")} / perf ${text(profile.performance_score || "-")}</span></div></td>
+            <td><div class="stack"><span>${text(expertise.primary || "Unknown")}</span><span class="tiny muted">${(expertise.secondary || []).map(text).join(", ") || "no secondary type"}</span></div></td>
+            <td><div class="stack"><span>${money(row.pnl)}</span><span class="tiny muted">${money(row.volume)}</span></div></td>
+          </tr>`;
+      }).join("") || `<tr><td colspan="6" class="muted">No live wallets returned.</td></tr>`;
+    }
+
+    function renderAlerts(alerts) {
+      document.getElementById("alerts-body").innerHTML = (alerts || []).map(alert => {
+        const wallets = alert.alert_type === "SAME_DIRECTION_CLUSTER"
+          ? (alert.wallets || []).slice(0, 4).map(wallet => walletLink(wallet)).join("")
+          : walletLink({ address: alert.wallet, profile_url: alert.profile_url, name: alert.name });
+        const walletScores = alert.alert_type === "SAME_DIRECTION_CLUSTER"
+          ? (alert.wallets || []).slice(0, 3).map(wallet => `${displayName(wallet)} ${scoreSummary(wallet)}`).join(" | ")
+          : scoreSummary(alert);
+        const project = alert.url
+          ? `<a href="${alert.url}" target="_blank" rel="noreferrer">${html(alert.question || alert.market_id)}</a>`
+          : html(alert.question || alert.market_id);
+        return `
+          <tr>
+            <td>${alertPill(alert.severity || "WATCH")}</td>
+            <td><div class="stack"><span>${html(alert.title)}</span><span class="tiny muted">${html(alert.alert_type)}</span></div></td>
+            <td><div class="stack">${wallets}<span class="tiny muted">${alert.wallet_count ? `${alert.wallet_count} wallets` : `${alert.matched_positions || 1} matching position`}</span></div></td>
+            <td><div class="stack"><span>${project}</span><span class="tiny muted">${html(alert.direction || alert.expertise || "-")}</span></div></td>
+            <td><div class="stack"><span>${html(walletScores)}</span><span class="tiny muted">${html(positionSummary(alert))}</span><span class="tiny muted">${html(alert.reason)}</span></div></td>
+          </tr>`;
+      }).join("") || `<tr><td colspan="5" class="muted">No alerts from the scanned live wallets yet.</td></tr>`;
+    }
+
+    function renderAdvancedAlerts(alerts) {
+      document.getElementById("advanced-alerts-body").innerHTML = (alerts || []).map(alert => {
+        const wallets = (alert.wallets || []).slice(0, 6).map(wallet => walletLink(wallet)).join("");
+        const project = alert.url
+          ? `<a href="${alert.url}" target="_blank" rel="noreferrer">${html(alert.question || alert.market_id)}</a>`
+          : html(alert.question || alert.market_id);
+        const extra = alert.alert_type === "ADVANCED_SAME_DIRECTION_CONSENSUS"
+          ? `Strong wallets: ${text(alert.strong_wallet_count)}; Expertise: ${distributionText(alert.expertise_distribution)}`
+          : `Strong wallets: ${text(alert.strong_wallet_count)}; Directions: ${distributionText(alert.direction_distribution)}`;
+        const entries = (alert.wallets || []).slice(0, 4).map(wallet => `${displayName(wallet)} ${scoreSummary(wallet)}; ${positionSummary(wallet)}`).join(" | ");
+        return `
+          <tr>
+            <td>${alertPill(alert.severity || "HIGH")}</td>
+            <td><div class="stack"><span>${html(alert.title)}</span><span class="tiny muted">${html(alert.alert_type)}</span></div></td>
+            <td><div class="stack">${wallets}<span class="tiny muted">${text(alert.wallet_count)} wallets</span></div></td>
+            <td><div class="stack"><span>${project}</span><span class="tiny muted">${html(alert.direction || alert.expertise || "-")}</span></div></td>
+            <td><div class="stack"><span>${html(extra)}</span><span class="tiny muted">${html(entries || alert.reason)}</span></div></td>
+          </tr>`;
+      }).join("") || `<tr><td colspan="5" class="muted">No advanced alerts from the scanned live wallets yet.</td></tr>`;
+    }
+
+    function renderParticipation(wallets) {
+      const rows = wallets.filter(row => (row.positions || []).length).slice(0, 12);
+      document.getElementById("participation-body").innerHTML = rows.map(row => `
+        <tr>
+          <td>${walletLink(row)}</td>
+          <td>${row.positions.slice(0, 4).map(position => {
+            const label = text(position.question || position.market_id);
+            return position.url ? `<div><a href="${position.url}" target="_blank" rel="noreferrer">${label}</a> ${pill(position.outcome || "position")}</div>` : `<div>${label} ${pill(position.outcome || "position")}</div>`;
+          }).join("")}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="2" class="muted">No open positions found for scanned leaderboard wallets.</td></tr>`;
+    }
+
+    async function scanProject() {
+      const input = document.getElementById("project-key");
+      const button = document.getElementById("project-search");
+      const key = input.value.trim();
+      if (!key) return;
+      button.disabled = true;
+      document.getElementById("project-body").innerHTML = `<tr><td colspan="3" class="muted">Scanning live wallets...</td></tr>`;
+      try {
+        let result;
+        try {
+          result = await loadJson(`/live/projects/${encodeURIComponent(key)}/participants?limit=${WALLET_LIMIT}`);
+        } catch (_localError) {
+          const fallback = await loadPublicFallback();
+          const lowered = key.toLowerCase();
+          result = {
+            participants: fallback.wallets.map(wallet => ({
+              address: wallet.address,
+              profile_url: wallet.profile_url,
+              name: wallet.name,
+              classification: wallet.classification,
+              positions: (wallet.positions || []).filter(position => [position.market_id, position.slug, position.question, position.category].join(" ").toLowerCase().includes(lowered)),
+            })).filter(wallet => wallet.positions.length),
+          };
+        }
+        document.getElementById("project-body").innerHTML = result.participants.map(row => `
+          <tr>
+            <td>${walletLink(row)}</td>
+            <td>${pill((row.classification || {}).rating || "WATCH")}</td>
+            <td>${row.positions.map(position => text(position.question || position.market_id)).join("<br>")}</td>
+          </tr>
+        `).join("") || `<tr><td colspan="3" class="muted">No scanned live leaderboard wallet currently matches "${text(key)}".</td></tr>`;
+      } catch (error) {
+        document.getElementById("project-body").innerHTML = `<tr><td colspan="3" class="muted">${error.message}</td></tr>`;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function hydrate() {
+      if (isRefreshing) return;
+      isRefreshing = true;
+      document.getElementById("realtime-status").textContent = "refreshing";
+      document.getElementById("refresh-now").disabled = true;
+      let marketRows = [];
+      let walletRows = [];
+      let alertRows = [];
+      let advancedAlertRows = [];
+      let mode = "local_api";
+      let fetchedAt = Date.now();
+      try {
+        const [overview, markets, enriched] = await Promise.all([
+          loadJson(`/live/overview?limit=${MARKET_LIMIT}`),
+          loadJson(`/live/markets?limit=${MARKET_LIMIT}`),
+          loadJson(`/live/wallets/enriched?limit=${WALLET_LIMIT}&positions_per_wallet=${POSITIONS_PER_WALLET}`),
+        ]);
+        marketRows = markets.markets || [];
+        walletRows = enriched.wallets || [];
+        alertRows = enriched.alerts || buildLiveAlerts(walletRows);
+        advancedAlertRows = enriched.advanced_alerts || buildAdvancedAlerts(walletRows);
+        fetchedAt = overview.fetched_at || Date.now();
+      } catch (localError) {
+        const fallback = await loadPublicFallback();
+        marketRows = fallback.markets;
+        walletRows = fallback.wallets;
+        alertRows = buildLiveAlerts(walletRows);
+        advancedAlertRows = buildAdvancedAlerts(walletRows);
+        mode = fallback.mode;
+        document.getElementById("status-text").textContent = `Local API unavailable, using browser public API fallback: ${localError.message}`;
+      }
+      document.getElementById("realtime-status").textContent = mode === "local_api" ? "live" : "live fallback";
+      document.getElementById("market-count").textContent = marketRows.length;
+      document.getElementById("wallet-count").textContent = walletRows.length;
+      document.getElementById("advanced-alert-count").textContent = advancedAlertRows.length;
+      document.getElementById("alert-count").textContent = alertRows.length;
+      document.getElementById("updated-at").textContent = new Date(fetchedAt).toLocaleTimeString();
+      renderMarkets(marketRows);
+      renderAdvancedAlerts(advancedAlertRows);
+      renderAlerts(alertRows);
+      renderWallets(walletRows);
+      renderParticipation(walletRows);
+      if (mode === "local_api") {
+        document.getElementById("status-text").textContent = "Live data loaded through the local enhanced API. Each refresh makes fresh public API requests.";
+      } else {
+        document.getElementById("status-text").textContent += " Market and leaderboard data are still live; enhanced server-side endpoints will return when the local API is running.";
+      }
+      document.getElementById("refresh-note").textContent = `Scanning ${walletRows.length || WALLET_LIMIT} live leaderboard addresses.`;
+      document.getElementById("refresh-now").disabled = false;
+      isRefreshing = false;
+      scheduleNextRefresh();
+    }
+
+    function refreshDelaySeconds() {
+      return document.hidden ? HIDDEN_REFRESH_SECONDS : ACTIVE_REFRESH_SECONDS;
+    }
+
+    function scheduleNextRefresh() {
+      window.clearTimeout(refreshTimer);
+      const checkbox = document.getElementById("auto-refresh");
+      if (!checkbox.checked) {
+        document.getElementById("next-refresh").textContent = "paused";
+        return;
+      }
+      const delay = refreshDelaySeconds();
+      nextRefreshAt = Date.now() + delay * 1000;
+      refreshTimer = window.setTimeout(() => {
+        hydrate().catch(showRefreshError);
+      }, delay * 1000);
+      updateCountdown();
+    }
+
+    function updateCountdown() {
+      const checkbox = document.getElementById("auto-refresh");
+      if (!checkbox.checked) {
+        document.getElementById("next-refresh").textContent = "paused";
+        return;
+      }
+      const seconds = Math.max(0, Math.ceil((nextRefreshAt - Date.now()) / 1000));
+      document.getElementById("next-refresh").textContent = document.hidden ? `${seconds}s hidden` : `${seconds}s`;
+    }
+
+    function showRefreshError(error) {
+      document.getElementById("realtime-status").textContent = "error";
+      document.getElementById("status-text").textContent = `Live API refresh failed: ${error.message}. Existing rows stay on screen; the next auto refresh will retry.`;
+      document.getElementById("refresh-now").disabled = false;
+      isRefreshing = false;
+      scheduleNextRefresh();
+    }
+
+    document.getElementById("project-search").addEventListener("click", scanProject);
+    document.getElementById("refresh-now").addEventListener("click", () => {
+      window.clearTimeout(refreshTimer);
+      hydrate().catch(showRefreshError);
+    });
+    document.getElementById("auto-refresh").addEventListener("change", scheduleNextRefresh);
+    document.addEventListener("visibilitychange", scheduleNextRefresh);
+    document.getElementById("project-key").addEventListener("keydown", event => {
+      if (event.key === "Enter") scanProject();
+    });
+    document.addEventListener("click", async event => {
+      const button = event.target.closest(".copy-address");
+      if (!button) return;
+      const address = button.dataset.address;
+      try {
+        await navigator.clipboard.writeText(address);
+        button.textContent = "Copied";
+      } catch (_error) {
+        window.prompt("Copy wallet address", address);
+      }
+      window.setTimeout(() => {
+        button.textContent = "Copy";
+      }, 1400);
+    });
+    countdownTimer = window.setInterval(updateCountdown, 1000);
+    hydrate().catch(showRefreshError);
+  </script>
+</body>
+</html>
