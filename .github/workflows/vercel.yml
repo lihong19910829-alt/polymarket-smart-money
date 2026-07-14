@@ -33,8 +33,17 @@ jobs:
       - name: Pull Vercel project settings
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
+      - name: Prepare minimal deploy source
+        run: |
+          mkdir .vercel-deploy
+          cp -r api app .vercel-deploy/
+          cp live-dashboard.html requirements.txt vercel.json .vercel-deploy/
+          cp -r .vercel .vercel-deploy/
+
       - name: Build
+        working-directory: .vercel-deploy
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy
+        working-directory: .vercel-deploy
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
